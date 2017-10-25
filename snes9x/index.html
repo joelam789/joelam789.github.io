@@ -1,0 +1,854 @@
+<html style="width: 100%; height: 100%; position: fixed; overflow-y: hidden;">
+    <head>
+    <meta http-equiv="Content-type" content="text/html; charset=utf-8" />
+    <style>
+        canvas.emscripten {
+            border: 0px none;
+            margin-left:auto;
+            margin-right:auto;
+            display:block
+        }
+
+        p#fullScreenButton {
+            text-align: center;
+            background-color: #e55b49;
+            font-family: Sans-Serif;
+            padding: 10px;
+            visibility: hidden;
+        }
+
+        p.startButton {
+            text-align: center;
+            background-color: #4c7aff;
+            font-family: Sans-Serif;
+            padding: 10px;
+        }
+        #loadingDiv {
+            text-align: center;
+        }
+    </style>
+
+    <style type="text/css">
+        .round-button {
+            width:80%;
+        }
+        .round-button-circle {
+            width: 100%;
+            height:0;
+            padding-bottom: 100%;
+            border-radius: 50%;
+            border:10px solid #cfdcec;
+            overflow:hidden;
+            background: #4679BD; 
+            box-shadow: 0 0 3px gray;
+        }
+        .round-button-circle:hover {
+            background:#30588e;
+        }
+        .round-button-rect {
+            width: 100%;
+            height:0;
+            padding-bottom: 100%;
+            border-radius: 10%;
+            border:10px solid #cfdcec;
+            overflow:hidden;
+            background: #4679BD; 
+            box-shadow: 0 0 3px gray;
+        }
+        .round-button-rect:hover {
+            background:#30588e;
+        }
+        .round-button a {
+            display:block;
+            float:left;
+            width:100%;
+            padding-top:50%;
+            padding-bottom:50%;
+            line-height:1em;
+            margin-top:-0.5em;
+            text-align:center;
+            color:#e2eaf3;
+            font-family:Verdana;
+            font-size:1.2em;
+            font-weight:bold;
+            text-decoration:none;
+        }
+    </style> 
+    </head>
+
+    <body style="width: 100%; height: 100%; position: fixed; overflow-y: hidden;">
+    
+    <figure style="overflow:visible;" id="spinner"><div class="spinner"></div><center style="margin-top:0.5em"><strong>emscripten</strong></center></figure>
+    <div class="emscripten" id="status">Downloading...</div>
+    <div class="emscripten">
+        <progress value="0" max="100" id="progress" hidden=1></progress>
+    </div>
+    <div class="emscripten_border">
+        <canvas class="emscripten" id="snes-canvas" oncontextmenu="event.preventDefault()"></canvas>
+    </div>
+    <hr>
+    <div id="emlogger" style="position:absolute; opacity: 0.5; width: 100%; top: 80px; display: none">
+        <textarea style="width: 100%" id="output" rows="8"></textarea>
+    </div>
+    <div style="height: 30px; border-bottom: solid #cfcfcf;">
+        <div style="float: left;">
+        <input type="file" accept=".sfc, .smc, .fig, .swc" id="file-selector">
+        <!-- <input type="text" value="test.sfc" id="file-url"> -->
+        <!-- <button id="load">Load</button> -->
+        <!-- <button id="start">Start</button> -->
+        <!-- <button id="fullscreen">Fullscreen</button> -->
+        </div>
+
+        <div style="float: right; margin-left: 10px; margin-right: 20px;">
+        <input type="checkbox" id="ckbfps"  
+        onclick = 'need_to_show_fps = this.checked;'
+        > FPS
+        </div>
+
+        <div style="float: right; margin-left: 20px;">
+        <input type="checkbox" id="ckbfps"  
+        onclick = "document.getElementById('emlogger').style.display = this.checked ? 'block' : 'none'"
+        > Log
+        </div>
+
+        <div style="float: right;">
+            <button id="next">Next</button>
+        </div>
+
+        <div style="float: right;">
+            <input type="text" maxlength="128" size="5" value="sf2.smc" id="file-url"><button id="load">Load</button>
+        </div>
+    </div>
+
+    <script>
+        var test_rom_index = 0;
+        var test_rom_list = ["par.sfc", "sf2.smc", "sd3.sfc"];
+        document.getElementById("file-url").value = test_rom_list[test_rom_index % test_rom_list.length];
+        document.getElementById("next").onclick = function() {
+            test_rom_index++;
+            document.getElementById("file-url").value = test_rom_list[test_rom_index % test_rom_list.length];
+        }
+    </script>
+    
+    <script>
+
+        var save_sram_interval = null;
+        var fps_interval = null;
+
+        var need_to_show_fps = false;
+
+        var run_func = null;
+        var save_sram_func = null;
+        var report_btn_func = null;
+
+        var current_frames = 0;
+        var game_screen_width = 0;
+        var game_screen_height = 0;
+        var game_scene_width = 0;
+        var game_scene_height = 0;
+        var tex_buf_array16 = null;
+        var heap_buf_array16 = null;
+        var tex_buf_array32 = null;
+        var heap_buf_array32 = null;
+        var get_frames_func = null;
+        var show_fps_func = null;
+        var set_sample_rates_func = null;
+
+        var statusElement = document.getElementById('status');
+        var progressElement = document.getElementById('progress');
+        var spinnerElement = document.getElementById('spinner');
+        var fullscreen = document.getElementById('fullscreen');
+
+        function _arrayToHeap(typedArray){
+            var numBytes = typedArray.length * typedArray.BYTES_PER_ELEMENT;
+            var ptr = Module._malloc(numBytes);
+            var heapBytes = new Uint8Array(Module.HEAPU8.buffer, ptr, numBytes);
+            heapBytes.set(new Uint8Array(typedArray.buffer));
+            return heapBytes;
+        }
+
+        window.update_scene_width = function(w) {
+            game_scene_width = w;
+        };
+
+        window.update_scene_height = function(h) {
+            game_scene_height = h;
+        };
+
+        window.set_game_screen_size = function(w, h) {
+            console.log("screen width: " + w);
+            game_screen_width = game_scene_width = w;
+            window.snes_canvas.width = window.buffer_canvas.width = w;
+            console.log("screen height: " + h);
+            game_screen_height = game_scene_height = h;
+            window.snes_canvas.height = window.buffer_canvas.height = h;
+            if (gl && umx) {
+                gl.uniformMatrix4fv (umx, false, [
+                    2.0 / gl.canvas.width, 0, 0,  0,
+                    0,  -2.0 / gl.canvas.height, 0, 0,
+                    0,  0, 2.0 / 2000, 0, 
+                    -1.0, 1.0, 0, 1.0
+                ]);
+                gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+            }
+            if (using_gl == 2) {
+                tex_buf_array16 = new Uint16Array(game_screen_width * game_screen_height);
+                tex_buf_array16.fill(0xffff);
+                heap_buf_array16 = _arrayToHeap(tex_buf_array16);
+                Module.ccall('setscreenbuff', null, ['number'], [heap_buf_array16.byteOffset]);
+            } else {
+                tex_buf_array32 = new Uint32Array(game_screen_width * game_screen_height);
+                tex_buf_array32.fill(0x00ffffff);
+                heap_buf_array32 = _arrayToHeap(tex_buf_array32);
+                Module.ccall('setpixelbuff', null, ['number'], [heap_buf_array32.byteOffset]);
+            }
+        };
+
+        window.clear_tex_buf = function() {
+            if (heap_buf_array16) {
+                (new Uint16Array(heap_buf_array16.buffer, heap_buf_array16.byteOffset, game_screen_width * game_screen_height)).fill(0xffff);
+            }
+            if (heap_buf_array32) {
+                (new Uint32Array(heap_buf_array32.buffer, heap_buf_array32.byteOffset, game_screen_width * game_screen_height)).fill(0x00ffffff);
+            }
+        };
+
+        window.update_tex = function() {
+            if (gl) {
+                if (using_gl == 1) {
+                    updateTexture(gl, main_texture, 
+                        new Uint8Array(heap_buf_array32.buffer, heap_buf_array32.byteOffset, game_screen_width * game_screen_height * 4), 
+                        game_screen_width, game_screen_height);
+                } else {
+                    updateTexture(gl, main_texture, 
+                        new Uint16Array(heap_buf_array16.buffer, heap_buf_array16.byteOffset, game_screen_width * game_screen_height), 
+                        game_screen_width, game_screen_height);
+                }
+            } else if (snes_canvas_img) {
+                snes_canvas_img.data.set(new Uint8Array(heap_buf_array32.buffer, heap_buf_array32.byteOffset, game_screen_width * game_screen_height * 4));
+                snes_canvas_ctx.putImageData(snes_canvas_img, 0, 0);
+            }
+        };
+
+        window.update_sound_sample_rates = function() {
+            set_sample_rates_func(22100, 22100);
+        };
+
+        window.Module = {
+            preRun: [],
+            postRun: [],
+            noExitRuntime: true,
+            print: (function() {
+                var element = document.getElementById('output');
+                element.value = ''; // clear browser cache
+                return function(text) {
+                    var txt = arguments.length > 1 ? [].slice.call(arguments).join(' ') : text;
+                    element.value += txt + "\n";
+                    element.scrollTop = element.scrollHeight - element.clientHeight; // focus on bottom
+                };
+            })(),
+            printErr: function(text) {
+                var txt = arguments.length > 1 ? [].slice.call(arguments).join(' ') : text;
+                console.error(txt);
+            },
+            /*
+            canvas: (function() {
+
+                canvas = document.getElementById('canvas');
+
+                // As a default initial behavior, pop up an alert when webgl context is lost. To make your
+                // application robust, you may want to override this behavior before shipping!
+                // See http://www.khronos.org/registry/webgl/specs/latest/1.0/#5.15.2
+                canvas.addEventListener("webglcontextlost", function(e) {
+                    alert('WebGL context lost. You will need to reload the page.');
+                    e.preventDefault();
+                }, false);
+
+                return canvas;
+            })(),
+            */
+            setStatus: function(text) {
+                if (!Module.setStatus.last) Module.setStatus.last = { time: Date.now(), text: '' };
+                if (text === Module.setStatus.text) return;
+                var m = text.match(/([^(]+)\((\d+(\.\d+)?)\/(\d+)\)/);
+                var now = Date.now();
+                if (m && now - Date.now() < 30) return; // if this is a progress update, skip if too soon
+                if (m) {
+                    text = m[1];
+                    progressElement.value = parseInt(m[2])*100;
+                    progressElement.max = parseInt(m[4])*100;
+                    progressElement.hidden = false;
+                    spinnerElement.hidden = false;
+                } else {
+                    progressElement.value = null;
+                    progressElement.max = null;
+                    progressElement.hidden = true;
+                    if (!text) spinnerElement.hidden = true;
+                }
+                statusElement.innerHTML = text;
+            },
+            totalDependencies: 0,
+            monitorRunDependencies: function(left) {
+                this.totalDependencies = Math.max(this.totalDependencies, left);
+                Module.setStatus(left ?
+                'Preparing... (' + (this.totalDependencies-left) + '/' + this.totalDependencies + ')' :
+                'All downloads complete.'
+                );
+            },
+            onRuntimeInitialized: function() {
+
+                get_frames_func = Module.cwrap('framesf', 'number', null);
+                show_fps_func = Module.cwrap('showfpsf', null, ['number', 'number']);
+                set_sample_rates_func = Module.cwrap('setsrf', null, ['number', 'number']);
+                report_btn_func = Module.cwrap('rptbtnf', null, ['number', 'number']);
+                save_sram_func = Module.cwrap('savesramf', null, null);
+                run_func = Module.cwrap('run', null, ['string']);
+
+                Module.ccall('mainf', null, null);
+
+                snes_canvas_img = snes_canvas_ctx
+                                  ? snes_canvas_ctx.createImageData(game_screen_width, game_screen_height)
+                                  : null;
+                 
+            }
+        };
+
+        Module.setStatus('Downloading...');
+        window.onerror = function() {
+            Module.setStatus('Exception thrown, see JavaScript console');
+            spinnerElement.style.display = 'none';
+            Module.setStatus = function(text) {
+                if (text) Module.printErr('[post-exception status] ' + text);
+            };
+        };
+
+        // Wires up the event handlers, called from compiled c code to give file
+        // system a chance to sync.
+        window.initSNES = function() {
+
+            //var startbttn = document.getElementById('start');
+            var fileChooser = document.getElementById('file-selector');
+            var loadbtn = document.getElementById('load');
+            var urlChooser = document.getElementById('file-url');
+
+            var cout_print = Module.print;
+            var filename = "";
+
+            var goFullScreen = function() {
+                var pointerlock = true;
+                var resize = false;
+                // double-checked, this does expect js boolean values
+                Module.requestFullScreen(pointerlock, resize);
+            };
+
+            var snesReadFile = function(evt) {
+                var f = evt.currentTarget.files[0];
+                cout_print(f.name);
+                filename = f.name;
+                var reader = new FileReader();
+                reader.onprogress = function(e) {
+                    if (e.lengthComputable){
+                        cout_print(Math.round((e.loaded / e.total) * 100) + "%");
+                    } else {
+                        count_print(e.loaded + "bytes");
+                    }
+                    //document.getElementById("start").disabled = false;
+                };
+                reader.onload = function(e) {
+                    cout_print(f.name + " loaded");
+                    try {
+                        Module.FS_unlink("/" + f.name);
+                        console.log("updating existing file: " + "/" + f.name);
+                    } catch(ex) {
+                        console.log("adding new file: " + "/" + f.name);
+                    }
+                    Module.FS_createDataFile("/", f.name, new Uint8Array(this.result) , true, true);
+                    console.log("done");
+                    snesMain();
+                };
+                reader.readAsArrayBuffer(f);
+            };
+
+            var loadRomFromUrl = function() {
+                var url = urlChooser.value;
+                if (url && url.length > 0) {
+                    loadbtn.disabled = true;
+                    var xhr = new XMLHttpRequest();
+                    xhr.open('GET', url, true);
+                    xhr.responseType = 'arraybuffer';
+                    xhr.onloadend = function(e) {
+                        loadbtn.disabled = false;
+                        loadbtn.innerHTML = "Load";
+                    };
+                    xhr.onprogress = function(e) {
+                        loadbtn.innerHTML = Math.round(e.loaded * 100 / e.total) + "%";
+                    };
+                    xhr.onload = function(e) {
+                        filename = url.split('/').pop();
+                        cout_print(filename + " loaded");
+                        try {
+                            Module.FS_unlink("/" + filename);
+                            console.log("updating existing file: " + "/" + filename);
+                        } catch(ex) {
+                            console.log("adding new file: " + "/" + filename);
+                        }
+                        Module.FS_createDataFile("/", filename, new Uint8Array(this.response) , true, true);
+                        console.log("done");
+                        snesMain();
+                    };
+                    xhr.send();
+                }
+            }
+
+            function snesMain() {
+                if (save_sram_interval) clearInterval(save_sram_interval);
+                if (fps_interval) clearInterval(fps_interval);
+                //document.getElementById("start").disabled = true;
+                var runromok = false;
+                try {
+                    run_func(filename);
+                    runromok = true;
+                } catch(ex) {
+                    cout_print("Failed to run ROM '" + filename + "': " + ex);
+                }
+                if (!runromok) return;
+                save_sram_interval = setInterval(function() {
+                    try {
+                        if (save_sram_func) save_sram_func();
+                    } catch(ex) {
+                        cout_print("Failed to auto save SRAM: " + ex);
+                    }
+                }, 10000);
+                fps_interval = setInterval(function() {
+                    var fps = get_frames_func() - current_frames;
+                    current_frames += fps;
+                    if (need_to_show_fps) show_fps_func(fps, using_gl);
+                    //console.log("FPS: " + fps);
+                }, 1000);
+            };
+
+            //startbttn.addEventListener('click', snesMain);
+            loadbtn.addEventListener('click', loadRomFromUrl);
+            fileChooser.addEventListener('change', snesReadFile);
+            //fullscreen.addEventListener('click', goFullScreen);
+            // make sure we sync state before tab closes
+            window.addEventListener('beforeunload', function() { 
+                if (save_sram_func) save_sram_func();
+            });
+        };
+
+    </script>
+
+    <script>
+        
+        var using_gl = 1;
+
+        var canvas = document.getElementById("snes-canvas");
+
+        var buffer_canvas = document.createElement("canvas");
+        var snes_canvas = canvas;
+        var snes_canvas_img = null;
+        var snes_canvas_ctx = null;
+        var buffer_canvas_ctx = null;
+
+        var gl = null;
+        var vs = null;
+        var ps = null;
+        var shader = null;
+        var tc_ptr = null;
+        var vx_data = null;
+        var vx_ptr = null;
+        var vx = null;
+        var ix = null;
+        var ix_data = null;
+        var umx = null;
+        var main_texture = null;
+        var gl_contextAttributes = { antialias:false };	// iOS10 bug？
+
+        if (using_gl > 0) {
+            gl = canvas.getContext("webgl2");
+            if (gl) using_gl = 2;
+            else {
+                using_gl = 1;
+                for (var i=0; i<4; i++) {
+                    gl = canvas.getContext(["webgl","experimental-webgl","moz-webgl","webkit-3d"][i], gl_contextAttributes)
+                    if (gl) break;
+                }
+            }
+            if (!gl) throw "Unable to initialize WebGL. Your browser or machine may not support it.";
+        } else {
+            using_gl = 0;
+            snes_canvas_ctx = snes_canvas.getContext("2d");
+            buffer_canvas_ctx = buffer_canvas.getContext("2d");
+        }
+
+        if (using_gl > 0 && gl) {
+            prepareGL(gl);
+            main_texture = initTexture(gl);
+        }
+
+        function prepareGL(gl) {
+
+            // prepare WebGL
+            gl.enable(gl.BLEND);
+            gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+
+            vs = gl.createShader(gl.VERTEX_SHADER);
+            gl.shaderSource(vs, "attribute vec2 avp; attribute vec2 atc; varying vec2 vtc; uniform mat4 um;" + 
+                                "void main (void) { vtc = atc; gl_Position = um * vec4(avp, 0.0, 1.0); }");
+            gl.compileShader(vs);
+
+            ps = gl.createShader(gl.FRAGMENT_SHADER);
+            gl.shaderSource(ps, "precision mediump float; varying vec2 vtc; uniform sampler2D sm;" + 
+                                "void main (void) { gl_FragColor = texture2D(sm, vtc); }");
+            gl.compileShader(ps);
+
+            shader  = gl.createProgram();
+            gl.attachShader(shader, vs);
+            gl.attachShader(shader, ps);
+            gl.linkProgram(shader);
+            gl.useProgram(shader);
+
+            vx = gl.createBuffer();
+            gl.bindBuffer(gl.ARRAY_BUFFER, vx);
+
+            ix = gl.createBuffer();
+            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ix);
+
+            umx = gl.getUniformLocation(shader, "um");
+            gl.uniformMatrix4fv (umx, false, [
+                2.0 / gl.canvas.width, 0, 0,  0,
+                0,  -2.0 / gl.canvas.height, 0, 0,
+                0,  0, 2.0 / 2000, 0, 
+                -1.0, 1.0, 0, 1.0
+            ]);
+
+            vx_ptr = gl.getAttribLocation(shader, "avp");
+            gl.enableVertexAttribArray(vx_ptr);
+            gl.vertexAttribPointer (vx_ptr, 2, gl.FLOAT, false, 4 * 4, 0);
+
+            tc_ptr = gl.getAttribLocation(shader, "atc");
+            gl.enableVertexAttribArray(tc_ptr);
+            gl.vertexAttribPointer (tc_ptr, 2, gl.FLOAT, false, 4 * 4, 2 * 4);
+
+            gl.uniform1i(gl.getUniformLocation(shader, "sm"), 0);
+
+            gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+
+            vx_data = new Float32Array(4 * 4); // 4 points for a rect, every point contains x,y,u,v
+
+            //    (top-left) 1------2 (top-right)
+            //               |     /|
+            //               | t0 / |
+            //               |   /  |
+            //               |  /   |
+            //               | / t1 |
+            //               |/     |
+            // (bottom-left) 0------3 (bottom-right)
+
+            // bottom-left (0)
+            vx_data[0] = 0; vx_data[1] = gl.canvas.height;
+            vx_data[2] = 0; vx_data[3] = 1;
+            // top-left (1)
+            vx_data[4] = 0; vx_data[5] = 0;
+            vx_data[6] = 0; vx_data[7] = 0;
+            // top-right (2)
+            vx_data[8] = gl.canvas.width; vx_data[9] = 0;
+            vx_data[10] = 1; vx_data[11] = 0;
+            // bottom-right (3)
+            vx_data[12] = gl.canvas.width; vx_data[13] = gl.canvas.height;
+            vx_data[14] = 1; vx_data[15] = 1;
+
+            //gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([0,0, 1,0, 1,1, 0,1]), gl.STATIC_DRAW);
+
+            ix_data = new Uint16Array([0,1,2, 0,2,3]);
+
+            gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, ix_data, gl.STATIC_DRAW);
+
+        }
+
+        function initTexture(gl) {
+
+            var new_texture = gl.createTexture();
+
+            gl.bindTexture(gl.TEXTURE_2D, new_texture);
+
+            if (using_gl == 2) {
+                gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB565, 1, 1,
+                        0, gl.RGB, gl.UNSIGNED_SHORT_5_6_5, new Uint16Array([0x1F]));
+            } else {
+                gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1,
+                        0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array([0, 0, 255, 255]));
+            }
+            
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+            //gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR); // or maybe gl.NEAREST ?
+            //gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); // or maybe gl.NEAREST ?
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+
+            return new_texture;
+        }
+
+        function updateTexture(gl, texture, dataTypedArray, width, height) {
+
+            gl.clear(gl.COLOR_BUFFER_BIT);
+
+            gl.bindTexture(gl.TEXTURE_2D, texture);
+
+            if (using_gl == 2) {
+                gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB565, width, height, 
+                    0, gl.RGB, gl.UNSIGNED_SHORT_5_6_5, dataTypedArray);
+            } else {
+                gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, width, height, 
+                    0, gl.RGBA, gl.UNSIGNED_BYTE, dataTypedArray);
+            }
+
+            vx_data[1] = vx_data[13] = game_screen_height;
+            vx_data[3] = vx_data[15] = game_scene_height/game_screen_height;
+
+            vx_data[8] = vx_data[12] = game_screen_width;
+            vx_data[10] = vx_data[14] = game_scene_width/game_screen_width;
+
+            gl.bufferData (gl.ARRAY_BUFFER, vx_data, gl.STATIC_DRAW);
+
+            gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
+            
+        }
+
+        var isPlayingDummySound = false;
+        var dummyAudioContext = null;
+        var dummyAudioSource = null;
+        var dummyAudioBuffer = null;
+        var dummyGain = null;
+
+        function playDummySound() { // for iOS only ...
+            dummyAudioContext = SDL.audioContext;
+            if (dummyAudioContext) {
+                isPlayingDummySound = true;
+                if (dummyAudioSource == null) {
+                    dummyAudioBuffer = dummyAudioContext.createBuffer(2, 1, dummyAudioContext.sampleRate);
+                    dummyAudioSource = dummyAudioContext.createBufferSource();
+                    dummyAudioSource.buffer = dummyAudioBuffer;
+                    dummyGain = dummyAudioContext.createGain();
+                    dummyAudioSource.connect(dummyGain);
+                    dummyGain.connect(dummyAudioContext.destination);
+                    dummyGain.gain.value = 0; // make sure no noise comes form it
+                    if (dummyAudioSource) dummyAudioSource.start();
+                }
+            }
+        }
+        window.addEventListener("touchend", function() {
+            if (isPlayingDummySound == false) playDummySound();
+        });
+        window.addEventListener("mousedown", function() {
+            if (isPlayingDummySound == false) playDummySound();
+        });
+
+    </script>
+
+    <script>
+
+        (function() {
+            var memoryInitializer = 'snes9x-sdl.js.mem';
+            if (typeof Module['locateFile'] === 'function') {
+                memoryInitializer = Module['locateFile'](memoryInitializer);
+            } else if (Module['memoryInitializerPrefixURL']) {
+                memoryInitializer = Module['memoryInitializerPrefixURL'] + memoryInitializer;
+            }
+            var xhr = Module['memoryInitializerRequest'] = new XMLHttpRequest();
+            xhr.open('GET', memoryInitializer, true);
+            xhr.responseType = 'arraybuffer';
+            xhr.send(null);
+        })();
+
+        var script = document.createElement('script');
+        script.src = "snes9x-sdl.js";
+        document.body.appendChild(script);
+
+    </script>
+
+    <div style="width: 100%;">
+            <div style="width: 90px; float: left;">
+                    <div class="round-button"><div class="round-button-rect">
+                        <a href="javascript:;" class="round-button" style="font-size:0.8em;" id="gbtn_lb">LB</a>
+                    </div></div>
+            </div>
+            <div style="width: 90px; float: left; margin-left: calc(50% - 180px);">
+                    <div class="round-button"><div class="round-button-rect">
+                        <a href="javascript:;" class="round-button" style="font-size:0.8em;" id="gbtn_start">START</a>
+                    </div></div>
+            </div>
+            <div style="width: 90px; float: left;">
+                    <div class="round-button"><div class="round-button-rect">
+                        <a href="javascript:;" class="round-button" style="font-size:0.8em;" id="gbtn_select">SELECT</a>
+                    </div></div>
+            </div>
+            <div style="width: 90px; float: right; margin-right: 10px;">
+                    <div class="round-button"><div class="round-button-rect">
+                        <a href="javascript:;" class="round-button" style="font-size:0.8em;" id="gbtn_rb">RB</a>
+                    </div></div>
+            </div>
+    </div>
+
+    <div>
+    <div id="joystick" style="width: 50%; height: 600px; float: left;"></div>
+    <div id="gamebtns" style="width: 50%; float: right;">
+            <div>
+                    <div style="width: 33%; margin-left: 33%;">
+                            <div class="round-button"><div class="round-button-circle" style="background: blue">
+                                <a href="javascript:;" class="round-button" id="gbtn_x">X</a>
+                            </div></div>
+                    </div>
+            </div>
+            <div>
+                    <div style="width: 33%; float: left;">
+                            <div class="round-button"><div class="round-button-circle" style="background: green">
+                                <a href="javascript:;" class="round-button" id="gbtn_y">Y</a>
+                            </div></div>
+                    </div>
+                    <div style="width: 33%; margin-left: 33%; float: right;">
+                            <div class="round-button"><div class="round-button-circle" style="background: red">
+                                <a href="javascript:;" class="round-button" id="gbtn_a">A</a>
+                            </div></div>
+                    </div>
+            </div>
+            <div>
+                    <div style="width: 33%; margin-left: 33%;">
+                            <div class="round-button"><div class="round-button-circle" style="background: yellow">
+                                <a href="javascript:;" class="round-button" id="gbtn_b">B</a>
+                            </div></div>
+                    </div>
+            </div>
+    </div>
+    </div>
+
+    <script src="nipplejs.min.js"></script>
+    
+    <script>
+        var vbuttons = {
+            right: 1103,
+            left: 1104,
+            down: 1105,
+            up: 1106,
+            start: 13,
+            select: 32,
+            a: 120,
+            b: 122,
+            x: 114,
+            y: 97,
+            lb: 113,
+            rb: 119
+        };
+
+        function bindGameButton(btnid) {
+            var btnobj = document.getElementById(btnid);
+            if (btnobj) {
+                btnobj.onmousedown = btnobj.ontouchstart = function(e) {
+                    e.preventDefault();
+                    var bname = e.target.id.split("_").pop();
+                    report_btn_func(vbuttons[bname], 1);
+                };
+                btnobj.onmouseup = btnobj.ontouchend = function(e) {
+                    e.preventDefault();
+                    var bname = e.target.id.split("_").pop();
+                    report_btn_func(vbuttons[bname], 0);
+                };
+            }
+        }
+
+        bindGameButton("gbtn_start");
+        bindGameButton("gbtn_select");
+        bindGameButton("gbtn_x");
+        bindGameButton("gbtn_y");
+        bindGameButton("gbtn_a");
+        bindGameButton("gbtn_b");
+        bindGameButton("gbtn_lb");
+        bindGameButton("gbtn_rb");
+
+        var gbarea = document.getElementById("gamebtns");
+        gbarea.onmousedown = gbarea.ontouchstart = gbarea.onmouseup = gbarea.ontouchend = function(e) {
+                    e.preventDefault();
+        };
+
+        window.vjoystick = nipplejs.create({
+            zone: document.getElementById('joystick'),
+            mode: "static",
+            color: "grey",
+            size: 200,
+            position: {left: window.innerWidth / 5, top: 610 + window.innerWidth / 4}
+        });
+
+        window.vjoystick.on('start', function (evt, nipple) {
+            nipple.on('move', function (e, data) {
+                var a = data.angle.degree;
+                if (a <= 22.5 || a > 360 - 22.5) {
+                    report_btn_func(vbuttons['right'], 1);
+
+                    report_btn_func(vbuttons['down'], 0);
+                    report_btn_func(vbuttons['left'], 0);
+                    report_btn_func(vbuttons['up'], 0);
+                }
+                else if (a > 22.5 && a <= 22.5 + 45) {
+                    report_btn_func(vbuttons['right'], 1);
+                    report_btn_func(vbuttons['up'], 1);
+
+                    report_btn_func(vbuttons['down'], 0);
+                    report_btn_func(vbuttons['left'], 0);
+                }
+                else if (a > 22.5 + 45 && a <= 22.5 + 90) {
+                    report_btn_func(vbuttons['up'], 1);
+
+                    report_btn_func(vbuttons['down'], 0);
+                    report_btn_func(vbuttons['left'], 0);
+                    report_btn_func(vbuttons['right'], 0);
+                }
+                else if (a > 22.5 + 90 && a <= 22.5 + 135) {
+                    report_btn_func(vbuttons['up'], 1);
+                    report_btn_func(vbuttons['left'], 1);
+
+                    report_btn_func(vbuttons['down'], 0);
+                    report_btn_func(vbuttons['right'], 0);
+                }
+                else if (a > 22.5 + 135 && a <= 22.5 + 180) {
+                    report_btn_func(vbuttons['left'], 1);
+
+                    report_btn_func(vbuttons['down'], 0);
+                    report_btn_func(vbuttons['up'], 0);
+                    report_btn_func(vbuttons['right'], 0);
+                }
+                else if (a > 22.5 + 180 && a <= 22.5 + 225) {
+                    report_btn_func(vbuttons['left'], 1);
+                    report_btn_func(vbuttons['down'], 1);
+
+                    report_btn_func(vbuttons['up'], 0);
+                    report_btn_func(vbuttons['right'], 0);
+                }
+                else if (a > 22.5 + 225 && a <= 22.5 + 270) {
+                    report_btn_func(vbuttons['down'], 1);
+
+                    report_btn_func(vbuttons['up'], 0);
+                    report_btn_func(vbuttons['left'], 0);
+                    report_btn_func(vbuttons['right'], 0);
+                }
+                else if (a > 22.5 + 270 && a <= 22.5 + 315) {
+                    report_btn_func(vbuttons['down'], 1);
+                    report_btn_func(vbuttons['right'], 1);
+
+                    report_btn_func(vbuttons['up'], 0);
+                    report_btn_func(vbuttons['left'], 0);
+                }
+            });
+        }).on('end', function (evt, nipple) {
+            nipple.off('move');
+            report_btn_func(vbuttons['up'], 0);
+            report_btn_func(vbuttons['down'], 0);
+            report_btn_func(vbuttons['left'], 0);
+            report_btn_func(vbuttons['right'], 0);
+        });
+
+    </script>
+
+    </body>
+</html>
