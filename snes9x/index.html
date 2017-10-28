@@ -147,6 +147,8 @@
 
         var need_to_show_fps = false;
 
+        var screen_scale_rate = 1.75;
+
         var run_func = null;
         var save_sram_func = null;
         var report_btn_func = null;
@@ -194,9 +196,10 @@
             game_screen_height = game_scene_height = h;
             window.snes_canvas.height = window.buffer_canvas.height = h;
             if (gl && umx) {
-                if (window.innerWidth >= w * 1.25 && window.innerHeight >= h * 1.25) {
-                    window.snes_canvas.width = window.buffer_canvas.width = w * 1.25;
-                    window.snes_canvas.height = window.buffer_canvas.height = h * 1.25;
+                if (window.innerWidth >= w * screen_scale_rate 
+                    && window.innerHeight >= h * screen_scale_rate) {
+                    window.snes_canvas.width = window.buffer_canvas.width = w * screen_scale_rate;
+                    window.snes_canvas.height = window.buffer_canvas.height = h * screen_scale_rate;
                 }
                 gl.uniformMatrix4fv (umx, false, [
                     2.0 / gl.canvas.width, 0, 0,  0,
@@ -866,7 +869,7 @@
             color: "grey",
             size: 200,
             position: {left: window.innerWidth / 5, 
-            top: 478 * (window.innerWidth >= (512 * 1.25) ? 1.25 : 1) + 132 + window.innerWidth / 4}
+            top: 478 * (window.innerWidth >= (512 * screen_scale_rate) ? screen_scale_rate : 1) + 132 + window.innerWidth / 4}
         });
 
         window.vjoystick.on('start', function (evt, nipple) {
