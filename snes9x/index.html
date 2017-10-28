@@ -77,6 +77,9 @@
     </head>
 
     <body style="width: 100%; height: 100%; position: fixed; overflow-y: hidden;">
+
+    <script src="zip/zip.js"></script>
+    <script> zip.workerScriptsPath = 'zip/'; </script>
     
     <figure style="overflow:visible;" id="spinner"><div class="spinner"></div><center style="margin-top:0.5em"><strong>emscripten</strong></center></figure>
     <div class="emscripten" id="status">Downloading...</div>
@@ -92,7 +95,7 @@
     </div>
     <div style="height: 30px; border-bottom: solid #cfcfcf;">
         <div style="float: left;">
-        <input type="file" accept=".sfc, .smc, .fig, .swc" id="file-selector">
+        <input type="file" accept=".sfc, .smc, .fig, .swc, .zip" id="file-selector">
         <!-- <input type="text" value="test.sfc" id="file-url"> -->
         <!-- <button id="load">Load</button> -->
         <!-- <button id="start">Start</button> -->
@@ -112,7 +115,11 @@
         </div>
 
         <div style="float: right;">
-            <button id="next">Next</button>
+            <button id="btn-reset">Reset</button>
+        </div>
+
+        <div style="float: right;">
+            <button id="btn-next">Next</button>
         </div>
 
         <div style="float: right;">
@@ -122,11 +129,14 @@
 
     <script>
         var test_rom_index = 0;
-        var test_rom_list = ["par.sfc", "sf2.smc", "sd3.sfc"];
+        var test_rom_list = ["par.zip", "sf2.zip", "sd3.zip", "tmz.zip"];
         document.getElementById("file-url").value = test_rom_list[test_rom_index % test_rom_list.length];
-        document.getElementById("next").onclick = function() {
+        document.getElementById("btn-next").onclick = function() {
             test_rom_index++;
             document.getElementById("file-url").value = test_rom_list[test_rom_index % test_rom_list.length];
+        }
+        document.getElementById("btn-reset").onclick = function() {
+            reset_game_func();
         }
     </script>
     
@@ -152,6 +162,7 @@
         var heap_buf_array32 = null;
         var get_frames_func = null;
         var show_fps_func = null;
+        var reset_game_func = null;
         var set_sample_rates_func = null;
 
         var statusElement = document.getElementById('status');
@@ -183,6 +194,10 @@
             game_screen_height = game_scene_height = h;
             window.snes_canvas.height = window.buffer_canvas.height = h;
             if (gl && umx) {
+                if (window.innerWidth >= w * 1.5 && window.innerHeight >= h * 1.5) {
+                    window.snes_canvas.width = window.buffer_canvas.width = w * 1.5;
+                    window.snes_canvas.height = window.buffer_canvas.height = h * 1.5;
+                }
                 gl.uniformMatrix4fv (umx, false, [
                     2.0 / gl.canvas.width, 0, 0,  0,
                     0,  -2.0 / gl.canvas.height, 0, 0,
@@ -302,6 +317,7 @@
                 set_sample_rates_func = Module.cwrap('setsrf', null, ['number', 'number']);
                 report_btn_func = Module.cwrap('rptbtnf', null, ['number', 'number']);
                 save_sram_func = Module.cwrap('savesramf', null, null);
+                reset_game_func = Module.cwrap('reset', null, null);
                 run_func = Module.cwrap('run', null, ['string']);
 
                 Module.ccall('mainf', null, null);
@@ -341,10 +357,99 @@
                 Module.requestFullScreen(pointerlock, resize);
             };
 
+            var zipContentEntries = [];
+            var romFileNameFromZip = "";
+
+            var addZipEntryToWorkspace = function() {
+                if (zipContentEntries.length <= 0) {
+                    if (romFileNameFromZip.length > 0) {
+                        console.log("done");
+                        filename = romFileNameFromZip;
+                        romFileNameFromZip = "";
+                        snesMain();
+                    }
+                } else {
+                    var zipentry = zipContentEntries.shift();
+                    if (zipentry) {
+                        var currentEntryName = zipentry.filename.toLowerCase();
+                        if (currentEntryName.indexOf('.smc') > 0 
+                            || currentEntryName.indexOf('.sfc') > 0
+                            || currentEntryName.indexOf('.fig') > 0
+                            || currentEntryName.indexOf('.swc') > 0) {
+                            romFileNameFromZip = zipentry.filename;
+                        }
+                        zipentry.getData(new zip.BlobWriter('application/octet-binary'), function (entrydata) {
+                            var zipEntryReader = new FileReader();
+                            zipEntryReader.onload = function () {
+                                try {
+                                    Module.FS_unlink("/" + zipentry.filename);
+                                    console.log("updating existing file: " + "/" + zipentry.filename);
+                                } catch(ex) {
+                                    console.log("adding new file: " + "/" + zipentry.filename);
+                                }
+                                Module.FS_createDataFile("/", zipentry.filename, new Uint8Array(zipEntryReader.result) , true, true);
+                                addZipEntryToWorkspace();
+                            };
+                            zipEntryReader.readAsArrayBuffer(entrydata);
+                        }, function (entrycurrent, entrytotal) { // onprogress callback
+                            //console.log("processing: " + url + " - " + current + "/" + total);
+                        });
+                    } else addZipEntryToWorkspace();
+                }
+            }
+
+            var addFileToWorkspace = function(loadedFileName, loadedFileData) {
+                if (loadedFileName.toLowerCase().indexOf('.zip') > 0) {
+                    // use a BlobReader to read the zip from a Blob object
+                    zip.createReader(new zip.BlobReader(new Blob([loadedFileData])), function(zipreader) {
+                        zipreader.getEntries(function(zipentries) { // get all entries from the zip
+                            if (zipentries == undefined || zipentries == null || zipentries.length <= 0) {
+                                zipreader.close();
+                                throw "Nothing found in zip file.";
+                                return;
+                            }
+                            zipContentEntries = [];
+                            romFileNameFromZip = "";
+                            for (var i=0; i<zipentries.length; i++) {
+                                var zipentry = zipentries[i];
+                                if (zipentry.filename.indexOf('/') > 0 || zipentry.filename.indexOf('\\') > 0) {
+                                    continue;
+                                } else {
+                                    zipContentEntries.push(zipentry);
+                                }
+                            } // end of entries loop
+                            if (zipContentEntries.length > 0) {
+                                addZipEntryToWorkspace();
+                            }
+                        });
+                    }, function (ziperror) { // onerror callback
+                        //console.error("error found in processing: " + url);
+                        console.error(ziperror);
+                        return;
+                    });
+                } else {
+                    try {
+                        Module.FS_unlink("/" + loadedFileName);
+                        console.log("updating existing file: " + "/" + loadedFileName);
+                    } catch(ex) {
+                        console.log("adding new file: " + "/" + loadedFileName);
+                    }
+                    Module.FS_createDataFile("/", loadedFileName, new Uint8Array(loadedFileData) , true, true);
+                    var simpleLoadedFileName = loadedFileName.toLowerCase();
+                    if (simpleLoadedFileName.indexOf('.smc') > 0 
+                        || simpleLoadedFileName.indexOf('.sfc') > 0
+                        || simpleLoadedFileName.indexOf('.fig') > 0
+                        || simpleLoadedFileName.indexOf('.swc') > 0) {
+                        console.log("done");
+                        filename = loadedFileName;
+                        snesMain();
+                    }
+                }
+            };
+
             var snesReadFile = function(evt) {
                 var f = evt.currentTarget.files[0];
                 cout_print(f.name);
-                filename = f.name;
                 var reader = new FileReader();
                 reader.onprogress = function(e) {
                     if (e.lengthComputable){
@@ -352,19 +457,10 @@
                     } else {
                         count_print(e.loaded + "bytes");
                     }
-                    //document.getElementById("start").disabled = false;
                 };
                 reader.onload = function(e) {
                     cout_print(f.name + " loaded");
-                    try {
-                        Module.FS_unlink("/" + f.name);
-                        console.log("updating existing file: " + "/" + f.name);
-                    } catch(ex) {
-                        console.log("adding new file: " + "/" + f.name);
-                    }
-                    Module.FS_createDataFile("/", f.name, new Uint8Array(this.result) , true, true);
-                    console.log("done");
-                    snesMain();
+                    addFileToWorkspace(f.name, this.result);
                 };
                 reader.readAsArrayBuffer(f);
             };
@@ -384,17 +480,9 @@
                         loadbtn.innerHTML = Math.round(e.loaded * 100 / e.total) + "%";
                     };
                     xhr.onload = function(e) {
-                        filename = url.split('/').pop();
-                        cout_print(filename + " loaded");
-                        try {
-                            Module.FS_unlink("/" + filename);
-                            console.log("updating existing file: " + "/" + filename);
-                        } catch(ex) {
-                            console.log("adding new file: " + "/" + filename);
-                        }
-                        Module.FS_createDataFile("/", filename, new Uint8Array(this.response) , true, true);
-                        console.log("done");
-                        snesMain();
+                        var loadedfilename = url.split('/').pop();
+                        cout_print(loadedfilename + " loaded");
+                        addFileToWorkspace(loadedfilename, this.response);
                     };
                     xhr.send();
                 }
@@ -605,10 +693,10 @@
                     0, gl.RGBA, gl.UNSIGNED_BYTE, dataTypedArray);
             }
 
-            vx_data[1] = vx_data[13] = game_screen_height;
+            vx_data[1] = vx_data[13] = gl.canvas.height;
             vx_data[3] = vx_data[15] = game_scene_height/game_screen_height;
 
-            vx_data[8] = vx_data[12] = game_screen_width;
+            vx_data[8] = vx_data[12] = gl.canvas.width;
             vx_data[10] = vx_data[14] = game_scene_width/game_screen_width;
 
             gl.bufferData (gl.ARRAY_BUFFER, vx_data, gl.STATIC_DRAW);
