@@ -1,0 +1,1 @@
+{"version":3,"sources":["scenes/map1/sprites/npc1.ts"],"names":[],"mappings":";;;AACA;IAAA;IAWA,CAAC;IATA,2BAAQ,GAAR,UAAS,MAAM;IAEf,CAAC;IAED,kCAAe,GAAf,UAAgB,MAAM;QACrB,OAAO,CAAC,GAAG,CAAC,yBAAyB,GAAG,MAAM,CAAC,IAAI,CAAC,CAAC;QACrD,MAAM,CAAC,IAAI,CAAC,eAAe,CAAC,MAAM,CAAC,CAAC;IACrC,CAAC;IAEF,eAAC;AAAD,CAXA,AAWC,IAAA;AAXY,4BAAQ","file":"npc1.js","sourceRoot":"../../../../src"}
