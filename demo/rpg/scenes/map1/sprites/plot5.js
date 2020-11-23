@@ -27,11 +27,11 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
     }
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.Plot2 = void 0;
-var Plot2 = (function () {
-    function Plot2() {
+exports.Plot3 = void 0;
+var Plot3 = (function () {
+    function Plot3() {
     }
-    Plot2.prototype.onUpdate = function (sprite) {
+    Plot3.prototype.onUpdate = function (sprite) {
         var scene, stage, tween, motion, profile, dialog1;
         return __generator(this, function (_a) {
             switch (_a.label) {
@@ -44,46 +44,22 @@ var Plot2 = (function () {
                     console.log("plot started - " + sprite.name);
                     dialog1 = scene.spr("dialog-box1").code;
                     dialog1.show(sprite, [
-                        "God:",
+                        "Kid:",
                         "",
-                        "Welcome! My dear boy!",
-                        "You will be the next new hero soon.",
-                        "So please go and make yourself stronger.",
+                        "Here is my secret garden.",
+                        "I feel peaceful and calm everytime when I get here.",
                     ]);
                     return [4, sprite.plot.wait()];
                 case 1:
                     _a.sent();
                     dialog1.show(sprite, [
-                        "神之声：",
+                        "Kid:",
                         "",
-                        "孩子，你是被命运选中的英雄 ——"
-                    ], 50, true);
+                        "You look not a bad guy.",
+                        "Could you please come and play with me?",
+                    ]);
                     return [4, sprite.plot.wait()];
                 case 2:
-                    _a.sent();
-                    dialog1.show(sprite, [
-                        " 天选之子！ "
-                    ], 2, true);
-                    return [4, sprite.plot.wait()];
-                case 3:
-                    _a.sent();
-                    dialog1.show(sprite, [
-                        "",
-                        "没什么好害怕，神的意志和光辉将会与你同在。",
-                        "只要无时无刻谨记神的教诲，神的力量会一直保护你。"
-                    ]);
-                    return [4, sprite.plot.wait()];
-                case 4:
-                    _a.sent();
-                    dialog1.show(sprite, [
-                        "評価項目:",
-                        "",
-                        "舞台となる惑星は、地球ではありません。",
-                        "古風な雰囲気のある分かりやすい操作の見下ろし型アクション。",
-                        "世界観が作りこまれているのに、肝心のメインストーリーがお粗末です。",
-                    ]);
-                    return [4, sprite.plot.wait()];
-                case 5:
                     _a.sent();
                     dialog1.close();
                     console.log("plot ended - " + sprite.name);
@@ -92,8 +68,8 @@ var Plot2 = (function () {
             }
         });
     };
-    return Plot2;
+    return Plot3;
 }());
-exports.Plot2 = Plot2;
+exports.Plot3 = Plot3;
 
-//# sourceMappingURL=plot2.js.map
+//# sourceMappingURL=plot5.js.map

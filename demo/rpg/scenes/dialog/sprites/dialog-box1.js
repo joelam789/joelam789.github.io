@@ -63,7 +63,8 @@ var SceneDialogSpriteDialogBox1 = (function () {
                 plotctx.plot.signal();
         }
     };
-    SceneDialogSpriteDialogBox1.prototype.close = function (spr) {
+    SceneDialogSpriteDialogBox1.prototype.close = function () {
+        var spr = this.owner;
         var tween = spr.scene.sys("tween");
         var chatbox = spr.scene.sprites["dialog-box1"];
         var chatmsg = spr.scene.sprites["dialog-msg1"];

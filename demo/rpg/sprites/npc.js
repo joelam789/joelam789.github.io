@@ -152,7 +152,7 @@ var SpriteNpc = (function () {
         var state = spr.get("movement");
         var gamemap = spr.scene.get("stage").gamemap;
         if (rpg && state && gamemap && !state.waiting && state.auto === true) {
-            spr.scene.timeout(1000 * (Math.floor(Math.random() * 2) + 1) * 2, function () {
+            spr.scene.timeout(1000 * (Math.floor(Math.random() * 3) + 1), function () {
                 if (state.waiting === true) {
                     _this.walkOnMap(spr);
                     return;
@@ -162,9 +162,9 @@ var SpriteNpc = (function () {
                 var start = gamemap.pixelToTile(currentX, currentY);
                 var steps = Math.floor(Math.random() * 2) + 1;
                 var range = gamemap.findRange(start.x, start.y, steps, false, function (cx, cy, val) {
-                    if (cx < 0 || cx > state.start.x + 2)
+                    if (cx < state.start.x - 2 || cx > state.start.x + 2)
                         return -1;
-                    if (cy < 0 || cy > state.start.y + 2)
+                    if (cy < state.start.y - 2 || cy > state.start.y + 2)
                         return -1;
                     if (spr.scene.sys("rpg").isOccupiedTile(spr.scene, null, cx, cy))
                         return -1;
@@ -180,7 +180,7 @@ var SpriteNpc = (function () {
             });
         }
         else {
-            spr.scene.timeout(1000 * (Math.floor(Math.random() * 2) + 1) * 2, function () { return _this.walkOnMap(spr); });
+            spr.scene.timeout(1000 * (Math.floor(Math.random() * 3) + 1), function () { return _this.walkOnMap(spr); });
         }
     };
     SpriteNpc.prototype.wait = function (spr, waiting) {
@@ -193,6 +193,13 @@ var SpriteNpc = (function () {
     };
     SpriteNpc.prototype.onSceneActivate = function (sprite) {
         var rpg = sprite.scene.sys("rpg");
+        var gamemap = sprite.scene.get("stage").gamemap;
+        var tile = sprite.get("tile");
+        if (tile && gamemap) {
+            var pos = gamemap.tileToPixel(tile.x, tile.y);
+            sprite.get("stage").x = pos.x;
+            sprite.get("stage").y = pos.y;
+        }
         if (rpg) {
             rpg.alignToTile(sprite);
             rpg.occupyCurrentTile(sprite);
@@ -200,7 +207,6 @@ var SpriteNpc = (function () {
         var state = sprite.get("movement");
         if (state)
             state.waiting = false;
-        var gamemap = sprite.scene.get("stage").gamemap;
         if (gamemap && state && state.auto === true) {
             var currentX = sprite.get("stage").x;
             var currentY = sprite.get("stage").y;

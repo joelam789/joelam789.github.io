@@ -187,6 +187,13 @@ var SpritePlayer = (function () {
     };
     SpritePlayer.prototype.onSceneActivate = function (sprite) {
         var rpg = sprite.scene.sys("rpg");
+        var gamemap = sprite.scene.get("stage").gamemap;
+        var tile = sprite.get("tile");
+        if (tile && gamemap) {
+            var pos = gamemap.tileToPixel(tile.x, tile.y);
+            sprite.get("stage").x = pos.x;
+            sprite.get("stage").y = pos.y;
+        }
         if (rpg) {
             rpg.alignToTile(sprite);
             rpg.occupyCurrentTile(sprite);

@@ -46,7 +46,7 @@ var Plot3 = (function () {
                     dialog1 = scene.spr("dialog-box1").code;
                     if (!(state.times == 0)) return [3, 2];
                     dialog1.show(sprite, [
-                        "Old Man:",
+                        "Man:",
                         "",
                         "I am a farmer living in the forest.",
                         "Do you know what is Forest Farming?",
@@ -55,19 +55,19 @@ var Plot3 = (function () {
                     return [4, sprite.plot.wait()];
                 case 1:
                     _a.sent();
-                    dialog1.close(sprite);
+                    dialog1.close();
                     state.times += 1;
                     return [3, 4];
                 case 2:
                     dialog1.show(sprite, [
-                        "Old Man:",
+                        "Man:",
                         "",
                         "Do you like farmers?"
                     ]);
                     return [4, sprite.plot.wait()];
                 case 3:
                     _a.sent();
-                    dialog1.close(sprite);
+                    dialog1.close();
                     _a.label = 4;
                 case 4:
                     console.log("plot ended - " + sprite.name);
