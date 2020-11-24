@@ -258,6 +258,14 @@ var Rpg = (function () {
     Rpg.prototype.isTalking = function () {
         return this.dialog && this.dialog.active;
     };
+    Rpg.prototype.onSceneMapClick = function (scene, event) {
+        var pos = event.data.getLocalPosition(scene.components["display"].object);
+        var target = scene.systems["stage"].transform(pos);
+        var rpg = scene.components["rpg"];
+        var player = scene.sprites[rpg.player];
+        if (player)
+            player.code.walkTo(player, target.x, target.y);
+    };
     Rpg.prototype.handleKeyboard = function (scene) {
         var _this = this;
         if (scene.paused)
@@ -308,7 +316,7 @@ var Rpg = (function () {
             }
             if (act && !this.holdon) {
                 if (this.dialog && this.dialog.active) {
-                    this.dialog.code.next(this.dialog);
+                    this.dialog.code.next();
                     this.holdon = true;
                     this.player.scene.timeout(500, function () { return _this.holdon = false; });
                 }

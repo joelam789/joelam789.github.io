@@ -45,16 +45,17 @@ var SceneDialogSpriteDialogBox1 = (function () {
                     .to({ y: chatbox.custom.posY, height: chatbox.custom.maxH }, 120)
                     .call(function () {
                     chatmsg.active = true;
-                    chatmsg.code.updateText(chatmsg, speed, more);
+                    chatmsg.code.updateText(speed, more);
                 });
             }
             else {
                 chatmsg.active = true;
-                spr.scene.timeout(150, function () { return chatmsg.code.updateText(chatmsg, speed, more); });
+                spr.scene.timeout(150, function () { return chatmsg.code.updateText(speed, more); });
             }
         }
     };
-    SceneDialogSpriteDialogBox1.prototype.next = function (spr) {
+    SceneDialogSpriteDialogBox1.prototype.next = function () {
+        var spr = this.owner;
         var chatbox = spr.scene.sprites["dialog-box1"];
         var chatstate = chatbox && chatbox.custom ? chatbox.custom.status : "";
         if (chatstate == "done" || chatstate == "more") {
@@ -103,7 +104,7 @@ var SceneDialogSpriteDialogBox1 = (function () {
         }
     };
     SceneDialogSpriteDialogBox1.prototype.onPointerup = function (spr, event) {
-        this.next(spr);
+        this.next();
     };
     return SceneDialogSpriteDialogBox1;
 }());
