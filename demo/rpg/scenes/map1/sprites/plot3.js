@@ -32,7 +32,7 @@ var Plot3 = (function () {
     function Plot3() {
     }
     Plot3.prototype.onUpdate = function (sprite) {
-        var scene, stage, tween, motion, profile, state, dialog1;
+        var scene, stage, tween, motion, profile, state, dialog1, answer1, responseWords;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
@@ -44,6 +44,7 @@ var Plot3 = (function () {
                     console.log("plot started - " + sprite.name);
                     state = sprite.get("rpg");
                     dialog1 = scene.spr("dialog-box1").code;
+                    answer1 = scene.spr("answer-box1").code;
                     if (!(state.times == 0)) return [3, 2];
                     dialog1.show(sprite, [
                         "Man:",
@@ -57,19 +58,40 @@ var Plot3 = (function () {
                     _a.sent();
                     dialog1.close();
                     state.times += 1;
-                    return [3, 4];
+                    return [3, 6];
                 case 2:
                     dialog1.show(sprite, [
                         "Man:",
                         "",
                         "Do you like farmers?"
-                    ]);
+                    ], 50, true);
                     return [4, sprite.plot.wait()];
                 case 3:
                     _a.sent();
-                    dialog1.close();
-                    _a.label = 4;
+                    answer1.show(sprite, [
+                        "Yes.",
+                        "No.",
+                        "I won't tell you."
+                    ]);
+                    return [4, sprite.plot.wait()];
                 case 4:
+                    _a.sent();
+                    responseWords = [
+                        "I am glad to hear that.",
+                        "You should get to know more about them.",
+                        "Okay..."
+                    ];
+                    dialog1.show(sprite, [
+                        "Man:",
+                        "",
+                        responseWords[answer1.getChoice() - 1]
+                    ]);
+                    return [4, sprite.plot.wait()];
+                case 5:
+                    _a.sent();
+                    dialog1.close();
+                    _a.label = 6;
+                case 6:
                     console.log("plot ended - " + sprite.name);
                     sprite.active = false;
                     return [2];

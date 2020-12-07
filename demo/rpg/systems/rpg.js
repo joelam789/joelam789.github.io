@@ -258,6 +258,14 @@ var Rpg = (function () {
     Rpg.prototype.isTalking = function () {
         return this.dialog && this.dialog.active;
     };
+    Rpg.prototype.isAnswering = function () {
+        return this.dialog && this.dialog.active
+            && this.dialog.code && this.dialog.code.isAnswering();
+    };
+    Rpg.prototype.selectAnswer = function () {
+        if (this.dialog && this.dialog.active && this.dialog.code)
+            this.dialog.code.selectAnswer();
+    };
     Rpg.prototype.onSceneMapClick = function (scene, event) {
         var pos = event.data.getLocalPosition(scene.components["display"].object);
         var target = scene.systems["stage"].transform(pos);
@@ -314,8 +322,22 @@ var Rpg = (function () {
                 playerAction.walkOnTile(this.player, dir, speed);
                 walking = true;
             }
+            if (talking && !this.holdon) {
+                if (this.isAnswering()) {
+                    if (dir && (dir == "up" || dir == "down")) {
+                        this.dialog.code.moveCursor(dir);
+                        this.holdon = true;
+                        this.player.scene.timeout(200, function () { return _this.holdon = false; });
+                    }
+                    if (act && !this.holdon) {
+                        this.selectAnswer();
+                        this.holdon = true;
+                        this.player.scene.timeout(200, function () { return _this.holdon = false; });
+                    }
+                }
+            }
             if (act && !this.holdon) {
-                if (this.dialog && this.dialog.active) {
+                if (talking) {
                     this.dialog.code.next();
                     this.holdon = true;
                     this.player.scene.timeout(500, function () { return _this.holdon = false; });

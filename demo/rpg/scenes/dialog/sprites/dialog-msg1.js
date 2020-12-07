@@ -29,7 +29,8 @@ var SceneDialogSpriteDialogMsg1 = (function () {
             }
         }
     };
-    SceneDialogSpriteDialogMsg1.prototype.onDisplayDone = function () {
+    SceneDialogSpriteDialogMsg1.prototype.onDisplayDone = function (showIcon) {
+        if (showIcon === void 0) { showIcon = true; }
         var spr = this.owner;
         var chatbox = spr.scene.sprites["dialog-box1"];
         var chaticon = spr.scene.sprites["dialog-icon1"];
@@ -39,7 +40,8 @@ var SceneDialogSpriteDialogMsg1 = (function () {
                 chatbox.code.next();
             }
             else {
-                chaticon.active = true;
+                if (showIcon)
+                    chaticon.active = true;
                 chatbox.custom.status = "done";
             }
         }

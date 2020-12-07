@@ -19,7 +19,7 @@ var SceneDialogSpriteDialogBox1 = (function () {
                 if (display) {
                     chatbox.custom.posY = display.y;
                     chatbox.custom.maxH = display.height;
-                    chatbox.custom.minH = 40;
+                    chatbox.custom.minH = 60;
                 }
             }
             if (!chatmsg.custom)
@@ -102,6 +102,29 @@ var SceneDialogSpriteDialogBox1 = (function () {
             if (rpg)
                 rpg.stopNpcWaiting(spr.scene);
         }
+    };
+    SceneDialogSpriteDialogBox1.prototype.isAnswering = function () {
+        var spr = this.owner;
+        var answer1 = spr.scene.spr("answer-box1").code;
+        return answer1 && answer1.isAnswering();
+    };
+    SceneDialogSpriteDialogBox1.prototype.getChoice = function () {
+        var spr = this.owner;
+        var answer1 = spr.scene.spr("answer-box1").code;
+        return answer1 ? 0 : answer1.getChoice();
+    };
+    SceneDialogSpriteDialogBox1.prototype.moveCursor = function (dir) {
+        var spr = this.owner;
+        var answer1 = spr.scene.spr("answer-box1").code;
+        if (answer1)
+            answer1.moveCursor(dir);
+    };
+    SceneDialogSpriteDialogBox1.prototype.selectAnswer = function () {
+        var spr = this.owner;
+        var icon = spr.scene.spr("answer-icon1");
+        var answer1 = spr.scene.spr("answer-box1").code;
+        if (answer1 && icon)
+            answer1.selectAnswer(icon);
     };
     SceneDialogSpriteDialogBox1.prototype.onPointerup = function (spr, event) {
         this.next();
