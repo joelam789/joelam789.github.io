@@ -63,6 +63,12 @@ var SceneDialogSpriteDialogBox1 = (function () {
             if (plotctx)
                 plotctx.plot.signal();
         }
+        else if (chatstate == "open") {
+            var chatmsg = spr.scene.sprites["dialog-msg1"];
+            if (chatmsg && chatmsg.custom && chatmsg.custom.content) {
+                chatmsg.get("display").object.text = chatmsg.custom.content;
+            }
+        }
     };
     SceneDialogSpriteDialogBox1.prototype.close = function () {
         var spr = this.owner;

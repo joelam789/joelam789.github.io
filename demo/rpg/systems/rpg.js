@@ -357,8 +357,11 @@ var Rpg = (function () {
                             if (npcDir && anima)
                                 anima.set(npcDir);
                         }
-                        if (!npc || (npc && !npcWalking))
+                        if (!npc || (npc && !npcWalking)) {
                             plot.active = true;
+                            this.holdon = true;
+                            this.player.scene.timeout(500, function () { return _this.holdon = false; });
+                        }
                     }
                 }
             }
