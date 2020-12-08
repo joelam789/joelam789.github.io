@@ -32,7 +32,7 @@ var Plot3 = (function () {
     function Plot3() {
     }
     Plot3.prototype.onUpdate = function (sprite) {
-        var scene, stage, tween, motion, profile, state, dialog1, answer1, responseWords;
+        var scene, stage, tween, motion, profile, state, dialog1, responseWords;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
@@ -44,7 +44,6 @@ var Plot3 = (function () {
                     console.log("plot started - " + sprite.name);
                     state = sprite.get("rpg");
                     dialog1 = scene.spr("dialog-box1").code;
-                    answer1 = scene.spr("answer-box1").code;
                     if (!(state.times == 0)) return [3, 2];
                     dialog1.show(sprite, [
                         "Man:",
@@ -68,7 +67,7 @@ var Plot3 = (function () {
                     return [4, sprite.plot.wait()];
                 case 3:
                     _a.sent();
-                    answer1.show(sprite, [
+                    dialog1.list(sprite, [
                         "Yes.",
                         "No.",
                         "I won't tell you."
@@ -84,7 +83,7 @@ var Plot3 = (function () {
                     dialog1.show(sprite, [
                         "Man:",
                         "",
-                        responseWords[answer1.getChoice() - 1]
+                        responseWords[dialog1.getChoice() - 1]
                     ]);
                     return [4, sprite.plot.wait()];
                 case 5:

@@ -111,7 +111,7 @@ var SceneDialogSpriteDialogBox1 = (function () {
     SceneDialogSpriteDialogBox1.prototype.getChoice = function () {
         var spr = this.owner;
         var answer1 = spr.scene.spr("answer-box1").code;
-        return answer1 ? 0 : answer1.getChoice();
+        return answer1 ? answer1.getChoice() : 0;
     };
     SceneDialogSpriteDialogBox1.prototype.moveCursor = function (dir) {
         var spr = this.owner;
@@ -125,6 +125,14 @@ var SceneDialogSpriteDialogBox1 = (function () {
         var answer1 = spr.scene.spr("answer-box1").code;
         if (answer1 && icon)
             answer1.selectAnswer(icon);
+    };
+    SceneDialogSpriteDialogBox1.prototype.list = function (spr, options, left, top, gap) {
+        if (left === void 0) { left = 150; }
+        if (top === void 0) { top = 40; }
+        if (gap === void 0) { gap = 80; }
+        var answer1 = spr.scene.spr("answer-box1").code;
+        if (answer1)
+            answer1.show(spr, options, left, top, gap);
     };
     SceneDialogSpriteDialogBox1.prototype.onPointerup = function (spr, event) {
         this.next();
