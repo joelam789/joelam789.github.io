@@ -8,7 +8,7 @@ var SpriteNpc = (function () {
         var _this = this;
         if (speed === void 0) { speed = 2; }
         if (callback === void 0) { callback = null; }
-        var rpg = spr.scene.sys("rpg");
+        var rpg = spr.scene.sys("rpg-map");
         var state = spr.get("movement");
         var anima = spr.get("display").animation;
         var motion = spr.scene.systems["motion"];
@@ -59,7 +59,7 @@ var SpriteNpc = (function () {
     SpriteNpc.prototype.walkOneStep = function (spr, speed, callback) {
         if (speed === void 0) { speed = 2; }
         if (callback === void 0) { callback = null; }
-        var rpg = spr.scene.sys("rpg");
+        var rpg = spr.scene.sys("rpg-map");
         var state = spr.get("movement");
         var anima = spr.get("display").animation;
         var gamemap = spr.scene.get("stage").gamemap;
@@ -95,7 +95,7 @@ var SpriteNpc = (function () {
         var start = gamemap.pixelToTile(currentX, currentY);
         var end = { x: x, y: y };
         var path = gamemap.findPath(start.x, start.y, end.x, end.y, false, function (cx, cy, val) {
-            return spr.scene.sys("rpg").isOccupiedTile(spr.scene, null, cx, cy) ? -1 : val;
+            return spr.scene.sys("rpg-map").isOccupiedTile(spr.scene, null, cx, cy) ? -1 : val;
         });
         if (path && path.length > 0) {
             state.path = [];
@@ -105,7 +105,7 @@ var SpriteNpc = (function () {
                 this.walkOneStep(spr, speed, callback);
         }
         else {
-            var dir = spr.scene.sys("rpg").getDirection(start, end);
+            var dir = spr.scene.sys("rpg-map").getDirection(start, end);
             if (dir)
                 spr.get("display").animation.set(dir);
             if (callback)
@@ -115,7 +115,7 @@ var SpriteNpc = (function () {
     SpriteNpc.prototype.stopWalking = function (spr, dir, callback) {
         if (dir === void 0) { dir = ""; }
         if (callback === void 0) { callback = null; }
-        var rpg = spr.scene.sys("rpg");
+        var rpg = spr.scene.sys("rpg-map");
         var state = spr.get("movement");
         var anima = spr.get("display").animation;
         var gamemap = spr.scene.get("stage").gamemap;
@@ -148,7 +148,7 @@ var SpriteNpc = (function () {
     };
     SpriteNpc.prototype.walkOnMap = function (spr) {
         var _this = this;
-        var rpg = spr.scene.sys("rpg");
+        var rpg = spr.scene.sys("rpg-map");
         var state = spr.get("movement");
         var gamemap = spr.scene.get("stage").gamemap;
         if (rpg && state && gamemap && !state.waiting && state.auto === true) {
@@ -166,7 +166,7 @@ var SpriteNpc = (function () {
                         return -1;
                     if (cy < state.start.y - 2 || cy > state.start.y + 2)
                         return -1;
-                    if (spr.scene.sys("rpg").isOccupiedTile(spr.scene, null, cx, cy))
+                    if (spr.scene.sys("rpg-map").isOccupiedTile(spr.scene, null, cx, cy))
                         return -1;
                     return val >= 0 ? 1 : -1;
                 });
@@ -192,30 +192,44 @@ var SpriteNpc = (function () {
     SpriteNpc.prototype.onUpdate = function (sprite) {
     };
     SpriteNpc.prototype.onSceneActivate = function (sprite) {
-        var rpg = sprite.scene.sys("rpg");
-        var gamemap = sprite.scene.get("stage").gamemap;
-        var tile = sprite.get("tile");
-        if (tile && gamemap) {
-            var pos = gamemap.tileToPixel(tile.x, tile.y);
-            sprite.get("stage").x = pos.x;
-            sprite.get("stage").y = pos.y;
+        var mapState = sprite.scene.get("rpg");
+        if (mapState && mapState.times == 1) {
+            var rpg = sprite.scene.sys("rpg-map");
+            var gamemap = sprite.scene.get("stage").gamemap;
+            var tile = sprite.get("tile");
+            if (tile && gamemap) {
+                var pos = gamemap.tileToPixel(tile.x, tile.y);
+                sprite.get("stage").x = pos.x;
+                sprite.get("stage").y = pos.y;
+            }
+            if (rpg) {
+                rpg.alignToTile(sprite);
+                rpg.occupyCurrentTile(sprite);
+            }
+            var state = sprite.get("movement");
+            if (state)
+                state.waiting = false;
+            if (gamemap && state && state.auto === true) {
+                var currentX = sprite.get("stage").x;
+                var currentY = sprite.get("stage").y;
+                var start = gamemap.pixelToTile(currentX, currentY);
+                state.start = {
+                    x: start.x,
+                    y: start.y
+                };
+                this.walkOnMap(sprite);
+            }
         }
-        if (rpg) {
-            rpg.alignToTile(sprite);
-            rpg.occupyCurrentTile(sprite);
-        }
-        var state = sprite.get("movement");
-        if (state)
-            state.waiting = false;
-        if (gamemap && state && state.auto === true) {
-            var currentX = sprite.get("stage").x;
-            var currentY = sprite.get("stage").y;
-            var start = gamemap.pixelToTile(currentX, currentY);
-            state.start = {
-                x: start.x,
-                y: start.y
-            };
-            this.walkOnMap(sprite);
+        else {
+            var rpg = sprite.scene.sys("rpg-map");
+            if (rpg)
+                rpg.occupyCurrentTile(sprite);
+            var state = sprite.get("movement");
+            if (state)
+                state.waiting = false;
+            if (state && state.auto === true) {
+                this.walkOnMap(sprite);
+            }
         }
     };
     return SpriteNpc;

@@ -1,0 +1,29 @@
+{
+    "active": true,
+    "script": false,
+    "template": "enemy",
+    
+	"components":
+    {
+        "animation":
+        {
+            "image": "dragons",
+            "current": "stand"
+        },
+		
+		"display":
+        {
+            "x": 160,
+            "y": 260
+        },
+        
+        "rpg":
+		{
+			"hp": 300,
+			"maxhp": 300
+		}
+
+    }
+	
+	
+}

@@ -32,7 +32,7 @@ var Plot3 = (function () {
     function Plot3() {
     }
     Plot3.prototype.onUpdate = function (sprite) {
-        var scene, stage, tween, motion, profile, state, dialog1, responseWords;
+        var scene, stage, tween, motion, profile, state, dialog1, responseWords, transition;
         return __generator(this, function (_a) {
             switch (_a.label) {
                 case 0:
@@ -88,7 +88,21 @@ var Plot3 = (function () {
                     return [4, sprite.plot.wait()];
                 case 5:
                     _a.sent();
-                    dialog1.close();
+                    if (dialog1.getChoice() != 2) {
+                        dialog1.close();
+                    }
+                    else {
+                        dialog1.close(false);
+                        transition = sprite.scene.systems["rpg-transition"];
+                        if (!transition.isWorking()) {
+                            transition.callScene("battle1", function (nextScene) {
+                                nextScene.reset();
+                            }, 500, 1000);
+                        }
+                        else {
+                            dialog1.close();
+                        }
+                    }
                     _a.label = 6;
                 case 6:
                     console.log("plot ended - " + sprite.name);

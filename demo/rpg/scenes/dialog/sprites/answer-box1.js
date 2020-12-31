@@ -80,6 +80,19 @@ var SceneDialogSpriteAnswerBox1 = (function () {
     SceneDialogSpriteAnswerBox1.prototype.isAnswering = function () {
         return this.answering;
     };
+    SceneDialogSpriteAnswerBox1.prototype.moveCursorTo = function (spr) {
+        if (!spr || !spr.active)
+            return;
+        var icon = spr.scene.sprites["answer-icon1"];
+        if (!icon || !icon.active)
+            return;
+        var iconDisplay = icon.get("display").object;
+        var item = spr;
+        var itemDisplay = item.get("display").object;
+        iconDisplay.x = itemDisplay.x + this.iconRelativeX;
+        iconDisplay.y = itemDisplay.y + this.iconRelativeY;
+        icon.custom.flag = item.custom.flag;
+    };
     SceneDialogSpriteAnswerBox1.prototype.moveCursor = function (dir) {
         if (dir === void 0) { dir = "down"; }
         var spr = this.owner;
@@ -144,6 +157,9 @@ var SceneDialogSpriteAnswerBox1 = (function () {
         var chatbox = spr.scene.sprites["dialog-box1"];
         if (chatbox)
             chatbox.code.next();
+    };
+    SceneDialogSpriteAnswerBox1.prototype.onPointerdown = function (spr, event) {
+        this.moveCursorTo(spr);
     };
     SceneDialogSpriteAnswerBox1.prototype.onPointerup = function (spr, event) {
         this.selectAnswer(spr);

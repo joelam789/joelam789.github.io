@@ -24,12 +24,13 @@
         {
             "onInit": "onInit",
             "onActivate": "onActivate",
-            "onPointerdown": "rpg.onSceneMapClick",
+            "onPointerdown": "rpg-map.onSceneMapClick",
             "onUpdate": "onUpdate"
         },
 
         "rpg":
         {
+            "times": 0,
             "player": "player1",
             "dialog": "dialog-box1",
             "flags": [0, 0, 0, 0, 0]
@@ -39,7 +40,7 @@
     "script": true,
 
 	"scenes": ["info", "dialog"],
-	"systems": ["motion", "rpg"],
+	"systems": ["motion", "rpg-map", "rpg-transition"],
     "sprites": ["plot1", "plot2", "plot3", "plot4", "plot5", "npc1", "npc2", "npc3", "player1"]
 	
 }

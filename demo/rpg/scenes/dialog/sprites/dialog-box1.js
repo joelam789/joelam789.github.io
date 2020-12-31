@@ -70,7 +70,8 @@ var SceneDialogSpriteDialogBox1 = (function () {
             }
         }
     };
-    SceneDialogSpriteDialogBox1.prototype.close = function () {
+    SceneDialogSpriteDialogBox1.prototype.close = function (needAnima) {
+        if (needAnima === void 0) { needAnima = true; }
         var spr = this.owner;
         var tween = spr.scene.sys("tween");
         var chatbox = spr.scene.sprites["dialog-box1"];
@@ -83,7 +84,7 @@ var SceneDialogSpriteDialogBox1 = (function () {
             var display_1 = chatbox.get("display").object;
             var canShowAnima = showing && tween && display_1 && chatbox.custom.posY
                 && chatbox.custom.maxH && chatbox.custom.minH;
-            if (canShowAnima) {
+            if (canShowAnima && needAnima) {
                 tween.get(display_1)
                     .to({ y: chatbox.custom.posY + (chatbox.custom.maxH - chatbox.custom.minH) / 2,
                     height: chatbox.custom.minH }, 120)
@@ -91,20 +92,20 @@ var SceneDialogSpriteDialogBox1 = (function () {
                     chatbox.active = false;
                     display_1.y = chatbox.custom.posY;
                     display_1.height = chatbox.custom.maxH;
-                    var rpg = spr.scene.sys("rpg");
+                    var rpg = spr.scene.sys("rpg-map");
                     if (rpg)
                         rpg.stopNpcWaiting(spr.scene);
                 });
             }
             else {
                 chatbox.active = false;
-                var rpg = spr.scene.sys("rpg");
+                var rpg = spr.scene.sys("rpg-map");
                 if (rpg)
                     rpg.stopNpcWaiting(spr.scene);
             }
         }
         else {
-            var rpg = spr.scene.sys("rpg");
+            var rpg = spr.scene.sys("rpg-map");
             if (rpg)
                 rpg.stopNpcWaiting(spr.scene);
         }

@@ -18,11 +18,12 @@
 		{
 			"enabled": true,
 			"shareable": false,
-			"actions": ["pointerup"]
+			"actions": ["pointerdown", "pointerup"]
 		},
 
 		"event":
 		{
+            "onPointerdown": "onPointerdown",
             "onPointerup": "onPointerup"
 		}
     }
