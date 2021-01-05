@@ -18,6 +18,7 @@
 			"controllable": true,
 			"movespeed": 2,
 			"progress": 0,
+			"lastmap": "",
 			"power": 20,
 			"score": 0,
 			"level": 1,
@@ -31,6 +32,5 @@
 	"packs": ["pack1"],
 
 	"basics": ["display", "stage", "tween", "transition", "mouse", "keyboard", "event"],
-	"scenes": ["info", "dialog", "list", "map1", "battle1"],
-	"first": "map1"
+	"scenes": ["preload"]
 }
